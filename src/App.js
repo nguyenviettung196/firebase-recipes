@@ -1,5 +1,7 @@
-import firebase from "./firebaseConfig";
 import "./App.css";
+
+// eslint-disable-next-line no-unused-vars
+import firebase from "./firebaseConfig";
 
 function App() {
 	return (
