@@ -1,6 +1,17 @@
-import firebase from "firebase";
+import firebase from "firebase/compat/app";
+import "firebase/compat/auth";
+import "firebase/compat/firestore";
+import "firebase/compat/storage";
+import { getAuth } from "firebase/auth";
 
 const config = {
+	// apiKey: "AIzaSyBBaiKc4S5ga1n1KNlVZXe9B16Cazpx4NI",
+	// authDomain: "fir-recipes-79d59.firebaseapp.com",
+	// projectId: "fir-recipes-79d59",
+	// storageBucket: "fir-recipes-79d59.appspot.com",
+	// messagingSenderId: "1022436894781",
+	// appId: "1:1022436894781:web:e1699957e132bf9b3ba254",
+	// measurementId: "G-JRZSY0BFD3",
 	apiKey: process.env.REACT_APP_API_KEY,
 	authDomain: process.env.REACT_APP_AUTH_DOMAIN,
 	projectId: process.env.REACT_APP_PROJECT_ID,
@@ -10,8 +21,11 @@ const config = {
 	measurementId: process.env.REACT_APP_MEASUREMENT_ID,
 };
 
-if (!firebase.app.length) {
-	firebase.initializeApp(config);
-}
+const firebaseApp = firebase.initializeApp(config);
+const auth = getAuth(firebaseApp);
 
-export default firebase;
+const firebaseConfig = {
+	auth,
+};
+
+export default firebaseConfig;
