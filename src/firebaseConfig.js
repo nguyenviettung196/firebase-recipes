@@ -1,8 +1,9 @@
-import firebase from "firebase/compat/app";
+// import firebase from "firebase/compat/app";
 import "firebase/compat/auth";
 import "firebase/compat/firestore";
 import "firebase/compat/storage";
 import { getAuth } from "firebase/auth";
+import { initializeApp } from "firebase/app";
 
 const config = {
 	// apiKey: "AIzaSyBBaiKc4S5ga1n1KNlVZXe9B16Cazpx4NI",
@@ -21,7 +22,7 @@ const config = {
 	measurementId: process.env.REACT_APP_MEASUREMENT_ID,
 };
 
-const firebaseApp = firebase.initializeApp(config);
+const firebaseApp = initializeApp(config);
 const auth = getAuth(firebaseApp);
 
 const firebaseConfig = {
