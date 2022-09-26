@@ -116,7 +116,7 @@ function App() {
 
 	function formatDate(date) {
 		const day = date.getUTCDate();
-		const month = date.getUTCMonth();
+		const month = date.getUTCMonth() + 1;
 		const year = date.getFullYear();
 		const dateString = `${month}-${day}-${year}`;
 		return dateString;
