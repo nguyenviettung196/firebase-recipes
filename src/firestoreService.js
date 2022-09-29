@@ -31,21 +31,12 @@ const readDocument = (collection, id) => {
 // 	return getDocs(firestoreQuery);
 // };
 
-const readDocuments = async ({
-	collection,
-	queries,
-	orderByField,
-	orderByDirection,
-	perPage,
-	cursorId,
-}) => {
+const readDocuments = async ({ collection, queries, orderByField, orderByDirection, perPage, cursorId }) => {
 	const collectionRef = firestoreCollection(firestore, collection);
 	const queryContraints = [];
 	if (queries && queries.length > 0) {
 		for (const query of queries) {
-			queryContraints.push(
-				where(query.field, query.condition, query.value)
-			);
+			queryContraints.push(where(query.field, query.condition, query.value));
 		}
 	}
 
@@ -56,6 +47,7 @@ const readDocuments = async ({
 		queryContraints.push(limit(perPage));
 	}
 	if (cursorId) {
+		const document = await readDocument(collection, cursorId);
 		queryContraints.push(startAfter(document));
 	}
 	const firestoreQuery = query(collectionRef, ...queryContraints);
@@ -64,10 +56,7 @@ const readDocuments = async ({
 };
 
 const updateDocument = (collection, id, document) => {
-	return updateDoc(
-		doc(firestoreCollection(firestore, collection), id),
-		document
-	);
+	return updateDoc(doc(firestoreCollection(firestore, collection), id), document);
 };
 
 const deleteDocument = (collection, id) => {

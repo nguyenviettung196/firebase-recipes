@@ -11,8 +11,13 @@ function App() {
 	const [user, setUser] = useState(null);
 	const [currentRecipe, setCurrentRecipe] = useState(null);
 	const [recipes, setRecipes] = useState([]);
+	const [isLoading, setIsLoading] = useState(false);
+	const [categoryFilter, setCategoryFilter] = useState("");
+	const [orderBy, setOrderBy] = useState("publishDateDesc");
+	const [recipesPerPage, setRecipesPerPage] = useState(3);
 
 	useEffect(() => {
+		setIsLoading(true);
 		fetchRecipes()
 			.then((fetchedRecipes) => {
 				setRecipes(fetchedRecipes);
@@ -20,23 +25,24 @@ function App() {
 			.catch((error) => {
 				console.log(error.message);
 				throw error;
+			})
+			.finally(() => {
+				setIsLoading(false);
 			});
 		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [user]);
+	}, [user, categoryFilter, orderBy, recipesPerPage]);
+
 	firebaseAuthService.subcribeToAuthChanges(setUser);
 
-	async function handleFetchRecipes() {
-		try {
-			const fetchedRecipes = await fetchRecipes();
-			setRecipes(fetchedRecipes);
-		} catch (error) {
-			console.error(error.message);
-			throw error;
-		}
-	}
-
-	async function fetchRecipes() {
+	async function fetchRecipes(cursorId = "") {
 		const queries = [];
+		if (categoryFilter) {
+			queries.push({
+				field: "category",
+				condition: "==",
+				value: categoryFilter,
+			});
+		}
 		if (!user) {
 			queries.push({
 				field: "isPublished",
@@ -44,11 +50,31 @@ function App() {
 				value: true,
 			});
 		}
+
+		const orderByField = "publishDate";
+		let orderByDirection;
+		if (orderBy) {
+			switch (orderBy) {
+				case "publishDateAsc":
+					orderByDirection = "asc";
+					break;
+				case "publishDateDesc":
+					orderByDirection = "desc";
+					break;
+				default:
+					break;
+			}
+		}
+
 		let fetchedRecipes = [];
 		try {
 			const response = await firestoreService.readDocuments({
 				collection: "recipes",
 				queries: queries,
+				orderByField: orderByField,
+				orderByDirection: orderByDirection,
+				perPage: recipesPerPage,
+				cursorId: cursorId,
 			});
 			const newRecipes = response.docs.map((recipeDoc) => {
 				const id = recipeDoc.id;
@@ -56,12 +82,36 @@ function App() {
 				data.publishDate = new Date(data.publishDate.seconds * 1000);
 				return { ...data, id };
 			});
-			fetchedRecipes = [...newRecipes];
+			if (cursorId) {
+				fetchedRecipes = [...recipes, ...newRecipes];
+			} else {
+				fetchedRecipes = [...newRecipes];
+			}
 		} catch (error) {
 			console.error(error.message);
 			throw error;
 		}
 		return fetchedRecipes;
+	}
+	function handleRecipesPerPagecChange(e) {
+		const recipesPerPage = e.target.value;
+		setRecipes([]);
+		setRecipesPerPage(recipesPerPage);
+	}
+	function handleLoadMoreRecipesClick() {
+		const lastRecipe = recipes[recipes.length - 1];
+		const cursorId = lastRecipe.id;
+		handleFetchRecipes(cursorId);
+	}
+
+	async function handleFetchRecipes(cursorId = "") {
+		try {
+			const fetchedRecipes = await fetchRecipes(cursorId);
+			setRecipes(fetchedRecipes);
+		} catch (error) {
+			console.error(error.message);
+			throw error;
+		}
 	}
 
 	async function handleAddRecipe(newRecipe) {
@@ -102,6 +152,22 @@ function App() {
 		setCurrentRecipe(null);
 	}
 
+	async function handleDeleteRecipe(recipeId) {
+		const deleteConfirmation = window.confirm("Are you sure you want to delete this recipe ?");
+		if (deleteConfirmation) {
+			try {
+				await firestoreService.deleteDocument("recipes", recipeId);
+				handleFetchRecipes();
+				setCurrentRecipe(null);
+				window.scroll(0, 0);
+				alert(`successfully deleted a recipe with an ID : ${recipeId} `);
+			} catch (error) {
+				alert(error.message);
+				throw error;
+			}
+		}
+	}
+
 	function lookupCategoryLabel(categoryKey) {
 		const categories = {
 			breadsSandwichesAndPizza: "Breads,Sanwitches,Pizza",
@@ -129,9 +195,47 @@ function App() {
 				<LoginForm existingUser={user} />
 			</div>
 			<div className="main">
+				<div className="row filters">
+					<label className="recipe-label input-label">
+						Category:
+						<select
+							value={categoryFilter}
+							onChange={(e) => setCategoryFilter(e.target.value)}
+							className="select"
+							required
+						>
+							<option value=""></option>
+							<option value="breadsSandwichesAndPizza">Breads,Sanwitches,Pizza</option>
+							<option value="eggsAndBreakfast">Eggs & Breakfast</option>
+							<option value="desserts">Desserts</option>
+							<option value="seafoods">Seafoods</option>
+							<option value="vegetables">Vegetables</option>
+						</select>
+					</label>
+					<label className="input-label">
+						<select value={orderBy} onChange={(e) => setOrderBy(e.target.value)} className="select">
+							<option value="publishDateDesc">Publish Date (newest - oldest)</option>
+							<option value="publishDateAsc">Publish Date (oldest - newest)</option>
+						</select>
+					</label>
+				</div>
 				<div className="center">
 					<div className="recipe-list-box">
-						{recipes && recipes.length > 0 ? (
+						{isLoading ? (
+							<div className="fire">
+								<div className="flames">
+									<div className="flame"></div>
+									<div className="flame"></div>
+									<div className="flame"></div>
+									<div className="flame"></div>
+								</div>
+								<div className="logs"></div>
+							</div>
+						) : null}
+						{!isLoading && recipes && recipes.length === 0 ? (
+							<h5 className="no-recipes">No Recipes Found</h5>
+						) : null}
+						{!isLoading && recipes && recipes.length > 0 ? (
 							<div className="recipe-list">
 								{recipes.map((recipe) => {
 									return (
@@ -140,6 +244,15 @@ function App() {
 												<div className="unpublished">UNPUBLISHED</div>
 											) : null}
 											<div className="recipe-name">{recipe.name}</div>
+											<div className="recipe-image-box">
+												{recipe.imageUrl ? (
+													<img
+														src={recipe.imageUrl}
+														alt={recipe.name}
+														className="recipe-image"
+													></img>
+												) : null}
+											</div>
 											<div className="recipe-field">
 												Category: {lookupCategoryLabel(recipe.category)}
 											</div>
@@ -162,11 +275,29 @@ function App() {
 						) : null}
 					</div>
 				</div>
+				{isLoading || (recipes && recipes.length > 0) ? (
+					<>
+						<label className="input-label">
+							Recipes Per Page:
+							<select value={recipesPerPage} onChange={handleRecipesPerPagecChange} className="select">
+								<option value="3">3</option>
+								<option value="6">6</option>
+								<option value="9">9</option>
+							</select>
+						</label>
+						<div className="pagination">
+							<button type="button" className="primary-button" onClick={handleLoadMoreRecipesClick}>
+								Load more
+							</button>
+						</div>
+					</>
+				) : null}
 				{user ? (
 					<AddEditRecipeForm
 						existingRecipe={currentRecipe}
 						handleAddRecipe={handleAddRecipe}
 						handleUpdateRecipe={handleUpdateRecipe}
+						handleDeleteRecipe={handleDeleteRecipe}
 						handleEditRecipeCancel={handleEditRecipeCancel}
 					/>
 				) : null}
